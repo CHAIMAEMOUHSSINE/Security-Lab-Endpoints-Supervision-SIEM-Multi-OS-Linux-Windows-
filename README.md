@@ -1,4 +1,4 @@
-# Atelier Sécurité SIEM & EDR Multi-OS (Linux & Windows)
+# Security Lab SIEM & EDR Multi-OS (Linux & Windows)
 
 **Atelier pratique de déploiement et de supervision de la sécurité des endpoints Linux et Windows à l’aide de Wazuh (SIEM & EDR) dans un environnement Cloud AWS.**
 
