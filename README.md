@@ -40,9 +40,12 @@ L’architecture déployée est composée des éléments suivants :
 
 #### Flux réseau principaux
 
-- **Agents → Serveur Wazuh** : `1514/TCP`  
-re- **Enrôlement des agents** : `1515/TCP`  
-- **Accès au Dashboard Wazuh** : `443/TCP (HTTPS)`
+| Port | Protocole | Usage |
+|------|-----------|-------|
+| 22 | TCP | SSH - Administration à distance |
+| 443 | TCP | HTTPS - Accès au dashboard Wazuh |
+| 1514 | TCP/UDP | Communication serveur-agents |
+| 1515 | TCP | Enregistrement et authentification des agents |
 
 ---
 
@@ -104,23 +107,41 @@ Toutes les instances ont été déployées dans le même VPC et le même subnet,
 ### 7. Installation et configuration de Wazuh All-in-One
 - Enrôlement via le Dashboard Wazuh
 Mise à jour du système :
+```bash
+# Mise à jour du système
 sudo apt update && sudo apt -y upgrade
+```
 
 ![alt text](assets/image-25.png)
-
+```bash
+# Téléchargement du script d'installation Wazuh
 curl -sO https://packages.wazuh.com/4.7/wazuh-install.sh
-
+```
 ![alt text](assets/image-26.png)
 
+```bash
+# Lancement de l'installation automatique
 sudo bash wazuh-install.sh -a
+
+```
 ![alt text](assets/image-27.png)
 ![alt text](assets/image-28.png)
 
 À la fin, le script fournit :
--	URL du dashboard: https:<YOURIPADRESSE>:443
--	Utilisateur : admin
--	Mot de passe : CsJpEbgRNAZR495aMkkvukVUceUvdv+9
+- **URL d'accès**:
+```
+https://<IP_PUBLIQUE_SERVEUR>
+```
+-	**Utilisateur** : admin
+-	**Mot de passe** : CsJpEbgRNAZR495aMkkvukVUceUvdv+9
+```
 Vérification des services :
+```bash
+# Vérifier l'état des services
+sudo systemctl status wazuh-manager
+sudo systemctl status wazuh-indexer
+sudo systemctl status wazuh-dashboard
+```
 ![alt text](assets/image-29.png)
 ![alt text](assets/image-30.png)
 ![alt text](assets/image-31.png)
@@ -135,6 +156,18 @@ Vérification des services :
 
 ### 8.Enrôler le client Linux et Windows
 - Via le dashboard Wazuh → Agents management → Deploy new agent
+```bash
+# Télécharger et installer l'agent
+wget https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.7.0-1_amd64.deb
+sudo WAZUH_MANAGER='<IP_SERVEUR_WAZUH>' dpkg -i wazuh-agent_4.7.0-1_amd64.deb
+# Démarrer le service
+sudo systemctl daemon-reload
+sudo systemctl enable wazuh-agent
+sudo systemctl start wazuh-agent
+
+# Vérifier le statut
+sudo systemctl status wazuh-agent
+```
 ![alt text](assets/image-34.png)
 ![alt text](assets/image-35.png)
 ![alt text](assets/image-36.png)
@@ -165,19 +198,35 @@ Vérification des services :
 #### 9.1 Côté Linux
 #### 9.1.1 Scénario 1 — Tentatives SSH échouées (bruteforce simulé)
 Sur Linux-Client (ou depuis une autre machine), fais plusieurs tentatives de login SSH invalides :
-ssh fakeuse@10.0.0.178
+#### Test Effectué
+```bash
+# Tentatives de connexion avec un utilisateur inexistant
+ssh fakeuser@<IP_LINUX_CLIENT>
+ssh wronguser@<IP_LINUX_CLIENT>
+ssh invaliduser@<IP_LINUX_CLIENT>
+```
+![ssh-fake-login-tentative](images/ssh-login-tentative.png)
 ![alt text](assets/image-50.png)
 ![alt text](assets/image-51.png)
 -	Tentatives SSH échouées
 -	Élévation de privilèges
 -	Modification de fichiers sensibles (FIM)
 #### 9.1.2 Scénario 2 — Élévation de privileges
-- sudo su
+```bash
+# Connexion pour linux client
+sudo su
+whoami
+exit
+```
 ![alt text](assets/image-52.png)
 ![alt text](assets/image-53.png)
 ![alt text](assets/image-54.png)
  #### 9.1.3 Scénario 3 — Modification fichier sensible 
- echo "test" | sudo tee -a /etc/passwd
+
+ ```bash
+# Modification du fichier /etc/passwd (ajout d'un utilisateur fictif)
+sudo echo "test" | sudo tee -a /etc/passwd
+```
  ![alt text](assets/image-55.png)
  ![alt text](assets/image-56.png)
 #### 9.2 Scénarios côté Windows
@@ -192,11 +241,45 @@ PowerShell (Admin) :
 ![alt text](assets/image-59.png)
 ![alt text](assets/image-60.png)
 ##### 9.2.3 Scénario 3— Option “EDR plus riche”: installer Sysmon
--	Invoke-WebRequest -Uri https://download.sysinternals.com/files/Sysmon.zip -OutFile C:\Sysmon.zip 
--	Expand-Archive -Path C:\Sysmon.zip -DestinationPath C:\Sysmon 
 
+```powershell
+# Télécharger Sysmon depuis Microsoft Sysinternals
+Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Sysmon.zip" -OutFile "C:\Temp\Sysmon.zip"
+
+# Extraire l'archive
+Expand-Archive -Path "C:\Temp\Sysmon.zip" -DestinationPath "C:\Temp\Sysmon"
+```
+```powershell
+# Télécharger la configuration SwiftOnSecurity
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml" -OutFile "C:\Temp\sysmonconfig.xml"
+```
 ![alt text](assets/image-61.png)
+```powershell
+# Vérifier que le service Sysmon est actif
+Get-Service Sysmon64
+```
 ![alt text](assets/image-62.png)
+
+```powershell
+# Ouvrir le fichier de configuration (en Administrateur)
+notepad "C:\Program Files (x86)\ossec-agent\ossec.conf"
+```
+
+- Ajouter la configuration suivante dans la section `<ossec_config>`:
+
+```xml
+<ossec_config>
+  <!-- Configuration existante... -->
+  
+  <!-- Collecte des événements Sysmon -->
+  <localfile>
+    <location>Microsoft-Windows-Sysmon/Operational</location>
+    <log_format>eventchannel</log_format>
+  </localfile>
+</ossec_config>
+```
+![sysmon-config](images/sysmon-localfile.png)
+
 ![alt text](assets/image-63.png)
 Ces scénarios démontrent la capacité de Wazuh à détecter des comportements suspects et à générer des alertes pertinentes.
 
