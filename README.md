@@ -35,7 +35,8 @@ L’architecture déployée est composée des éléments suivants :
   *(Manager, Indexer, Dashboard)*  
 - **EC2-2 (Ubuntu 22.04)** : Client Linux avec agent Wazuh  
 - **EC2-3 (Windows Server)** : Client Windows avec agent Wazuh et option **Sysmon**
-       ![alt text](image-3.png)
+
+![Windows Client](assets/image-3.png)
 
 #### Flux réseau principaux
 
